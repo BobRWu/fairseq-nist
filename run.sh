@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=0,1,2,3 python train.py data-bin/zh_en --arch transformer --optimizer adam --adam-betas '(0.9, 0.98)' --clip-norm 0.0 --lr-scheduler inverse_sqrt --warmup-init-lr 1e-07 --warmup-updates 4000 --lr 0.0007 --min-lr 1e-09 --weight-decay 0.0 --criterion label_smoothed_cross_entropy --label-smoothing 0.8 --max-tokens 4096 --update-freq 2 --max-epoch 36
