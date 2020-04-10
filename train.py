@@ -11,6 +11,8 @@ import collections
 import math
 import random
 
+import os
+
 import numpy as np
 import torch
 
@@ -48,7 +50,18 @@ def main(args, init_distributed=False):
         task.load_dataset(valid_sub_split, combine=False, epoch=0)
 
     # Build model and criterion
+
     model = task.build_model(args)
+
+    cp_path = os.path.join(args.save_dir, 'checkpoint_last.pt')
+    now_epoch = checkpoint_utils.load_checkpoint_to_cpu(cp_path)['extra_state']['train_iterator']['epoch'] if os.path.exists(cp_path) else 0
+    if hasattr(args, 'learned_dropout') and now_epoch >= args.ft_epoch:
+        for param in model.parameters():
+            if param.requires_grad == False:
+                param.requires_grad = True
+            elif param.requires_grad == True:
+                param.requires_grad = False
+
     criterion = task.build_criterion(args)
     print(model)
     print('| model {}, criterion {}'.format(args.arch, criterion.__class__.__name__))
@@ -78,6 +91,17 @@ def main(args, init_distributed=False):
     valid_subsets = args.valid_subset.split(',')
     while lr > args.min_lr and epoch_itr.epoch < max_epoch and trainer.get_num_updates() < max_update:
         # train for one epoch
+
+        if hasattr(args, 'learned_dropout') and epoch_itr.epoch == args.ft_epoch:
+            num_upd = trainer.get_num_updates()
+            for param in trainer.model.parameters():
+                if param.requires_grad == False:
+                    param.requires_grad = True
+                elif param.requires_grad == True:
+                    param.requires_grad = False
+            trainer = Trainer(args, task, model, criterion)
+            trainer.set_num_updates(num_upd)
+
         train(args, trainer, task, epoch_itr)
 
         if not args.disable_validation and epoch_itr.epoch % args.validate_interval == 0:
